@@ -1,0 +1,300 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>DUEL TIMER</title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <link href="./css/styles.css" rel="stylesheet" type="text/css">
+
+    <script type="text/javascript" src="./js/jquery.js"></script>
+    <script type="text/javascript" src="./js/string.format-1.0.js"></script>
+
+    <style>
+        .app-wrapper { width: 800px; margin: auto; padding: 0; position: relative; top: 50%; margin-top: -140px; }
+        .left-col { width: 270px; float: left; padding: 15px; }
+        .right-col { width: 460px; float: right; padding: 15px; }
+        .left-col, .right-col { min-height: 245px; background: rgba(0,0,0,0.45); box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.75); -moz-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.75); -webkit-box-shadow: rgba(0,0,0,0.75) 0px 1px 3px; }
+        h3 { font-size: 0.8em; text-transform: uppercase; margin-bottom: 0; }
+        #historyLog { list-style-type: decimal; padding-left: 35px; height: 234px; overflow: auto; margin-top: 5px; }
+        li:first-child { }
+        li span { color: #FFF; }
+        li span.inline-col { width: 120px; display: inline-block; color: #999; }
+        li span.inline-col2 { width: 80px; display: inline-block; color: #999; }
+        li.success { color: green; }
+        li.fail { color: red; }
+        #timePrediction { }
+        #pickupMessage { font-size: 2.2em; }
+        #pickupMessage span.item { margin-left: 8px; color: #999; }
+        #pickupMessage.Mega span.item { background: url(./images/timer_icon_mega.png) no-repeat 0 50%; display: inline-block; padding-left: 34px; }
+        #pickupMessage.Armor span.item { background: url(./images/timer_icon_armor.png) no-repeat 0 50%; display: inline-block; padding-left: 34px; }
+        .pickup-message { padding-bottom: 15px; border-bottom: 1px solid #111; display: block; }
+        .respawn-timer { padding-top: 15px; border-top: 1px solid #333; padding-bottom: 15px; border-bottom: 1px solid #111; }
+        .settings-area { padding-top: 15px; border-top: 1px solid #333; }
+        #settingsForm { margin-top: 10px; }
+        label { display: block; padding: 0 0 4px 0; }
+        label input { margin: 0; padding: 0; width: 17px; height: 17px; vertical-align: middle; }
+        label span { margin-left: 10px; vertical-align: middle; }
+        #averageTime { }
+    </style>
+</head>
+
+<body>
+    <div class="app-wrapper clearfloat">
+        <div class="left-col">
+
+            <div class="pickup-message">
+                <h3>
+                    Item pickup</h3>
+                <span id="pickupMessage" class="Armor"><span>00:56</span><span class="item"> Armor</span></span>
+            </div>
+
+            <div class="respawn-timer">
+                <h3>
+                    Next respawn time (last 2 digits)</h3>
+                <form id="answerForm">
+                <div class="f-24 mb-10">
+                    <input type="text" id="" size="1" class="a-center" maxlength="2" readonly="readonly"
+                        value="XX">:<input type="text" id="timePrediction" size="1" class="a-center" autocomplete="off">
+                    <input type="submit" value="Check">
+                </div>
+                <label>
+                    <input type="checkbox" name="TimerDirection" value="0"><span>Timer count down</span></label>
+                </form>
+            </div>
+
+            <div class="settings-area">
+                <h3>
+                    items</h3>
+                <form id="settingsForm">
+                <label>
+                    <input type="checkbox" name="Mega" value="35" checked="checked"><span>Mega health</span></label>
+                <label>
+                    <input type="checkbox" name="Armor" value="25" checked="checked"><span>Armor</span></label>
+                </form>
+            </div>
+
+        </div>
+
+        <div class="right-col">
+            <div>
+                <h3>
+                    Log</h3>
+                <ol id="historyLog">
+                </ol>
+                <div class="mt-5 a-lefts f-11">
+                    <span class="mr-20"><span class="weak">Average speed:</span> <span id="averageTime">
+                        0</span></span> <span><span class="weak">Accuracy:</span> <span id="averageAccuracy">
+                            0 <span class="weak">(0/0)</span></span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            $pickupMessage = $('#pickupMessage');
+            $timePrediction = $('#timePrediction');
+            $historyLog = $('#historyLog');
+            $averageTime = $('#averageTime');
+            $averageAccuracy = $('#averageAccuracy');
+            $answerForm = $('#answerForm');
+            $settingsForm = $('#settingsForm');
+
+            var ATStack = 0;
+            var correctAnswers = 0;
+            var incorrectAnswers = 0;
+
+            var timerDirection = 1;
+
+            var _items = [{ name: 'Mega', value: 35 }, { name: 'Armor', value: 25}];
+            var _elapsedTime;
+            var _pauseTime = 0;
+
+            var _prevTime;
+
+            var _formatTime = function (_seconds) {
+                var minutes = Math.floor(_seconds / 60);
+                var seconds = Math.abs(_seconds - minutes * 60);
+                if (minutes < 10) minutes = '0' + minutes;
+                if (seconds < 10) seconds = '0' + seconds;
+
+                return [minutes, seconds];
+            };
+
+            var _getRandomTime = function () {
+                return randomXToY(0, 59);
+                return Math.floor(Math.random() * 1000);
+            };
+
+            var _getRandomItem = function () {
+                var items = $settingsForm.serializeArray();
+                var rnd = randomXToY(0, items.length - 1) || 0; //Math.floor(Math.random() * 10);
+                return items[rnd];
+            };
+
+            //function to get random number upto m
+            var randomXToY = function (minVal, maxVal, floatVal) {
+                var randVal = minVal + (Math.random() * (maxVal - minVal));
+                return typeof floatVal == 'undefined' ? Math.round(randVal) : randVal.toFixed(floatVal);
+            }
+
+            var correctTime;
+            var rndTime;
+            var rndItem;
+
+            var _generatePickup = function () {
+                rndTime = _getRandomTime();
+                rndItem = _getRandomItem();
+
+                while (rndTime == _prevTime) {
+                    rndTime = _getRandomTime();
+                };
+
+                if (typeof rndItem == 'undefined') {
+                    $pickupMessage.html('--');
+                    return;
+                } else {
+                    var _pickupMessageHTML = ('<span>{0}</span><span class="item"> {1}</span>').format(_formatTime(rndTime).join(':'), rndItem.name)
+                    $pickupMessage.html(_pickupMessageHTML).attr('class', rndItem.name);
+                };
+
+                correctTime = rndTime + (timerDirection * parseInt(rndItem.value, 10));
+                if (correctTime < 0) correctTime += 60;
+
+                _elapsedTime = new Date().getTime();
+                _prevTime = rndTime;
+            };
+
+            var hits = 0,
+		shots = 0,
+		accuracy = 0;
+
+            var _compareResults = function (_data) {
+
+                var result = parseInt(_data, 10) == parseInt(_formatTime(correctTime)[1], 10);
+                var resultText = result ? 'Correct' : 'Incorrect';
+                var elapsed = Math.floor((new Date().getTime() - _elapsedTime - _pauseTime) / 1000);
+
+                shots++;
+                hits += result ? 1 : 0;
+                accuracy = hits / shots;
+
+                _pauseTime = 0;
+
+                if (elapsed <= 3 && result) {
+                    resultText = 'WOW! That was fast ;)';
+                };
+
+                resultText += '\nTime Elapsed: ' + elapsed;
+
+                //alert(resultText);
+
+                $timePrediction.val('');
+                var logEntry = ('<li class="{0}"><span class="inline-col">Pick: {1}</span> <span class="inline-col2">Resp: XX:{2}</span> <span>time elapsed: {3}</span></li>').format(result ? 'success' : 'fail', $pickupMessage.text(), _formatTime(parseInt(_data, 10))[1], _formatTime(elapsed).join(':'));
+                $historyLog.append(logEntry);
+                var listScrollHeight = $historyLog.get(0).scrollHeight;
+                var listHeight = $historyLog.height();
+                $historyLog.scrollTop(listScrollHeight - listHeight);
+
+                ATStack += elapsed;
+
+                if (ATStack > 0) {
+                    var avg = Math.ceil(ATStack / $historyLog.children().length);
+                    $averageTime.text(avg);
+                };
+
+                if (result) {
+                    _generatePickup();
+                };
+
+                $averageAccuracy.html(Math.ceil(accuracy * 100) + '% <span class="weak">(' + hits + '/' + shots + ')</span>')
+
+            };
+
+            $(document).ready(function () {
+                var _delay = 0;
+
+                $(window).blur(function (event) {
+                    _delay = new Date().getTime();
+                });
+
+                $(window).focus(function (event) {
+                    _delay = _delay > 0 ? new Date().getTime() - _delay : 0;
+                    _pauseTime += _delay;
+                    console.log('resume: ', _pauseTime);
+                    _delay = 0;
+                });
+
+                var charlimit = 2;
+
+                $timePrediction.focus().attr('autocomplete', 'off');
+
+                $timePrediction.keydown(function (event) {
+                    var _legalCodes = [8, 9, 13, 35, 36, 37, 38, 39, 40, 46, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123],
+				_exclude = [13, 46, 8],
+				_metaKey = event.shiftKey || event.ctrlKey || event.metaKey || event.altKey;
+
+                    if ($.inArray(event.keyCode, _exclude) > -1) {
+                        return true;
+                    }
+
+                    if ($.inArray(event.keyCode, _legalCodes) == -1) {
+                        return false;
+                    }
+
+                    var value = this.value;
+                    if (value.length >= charlimit) {
+                        var delta = value.length - charlimit + 1;
+                        value = value.substring(delta);
+                        this.value = value;
+                    }
+                });
+
+                $(document).click(function () {
+                    $timePrediction.focus();
+                });
+
+                timerDirection = parseInt(window.localStorage.dtimerDirection, 10) || 1;
+                $answerForm.get(0).TimerDirection.checked = timerDirection < 0 ? true : false;
+
+                $answerForm.get(0).TimerDirection.onclick = function () {
+                    timerDirection = this.checked ? -1 : 1;
+                    correctTime = rndTime + timerDirection * parseInt(rndItem.value, 10);
+                    if (correctTime < 0) correctTime += 60;
+                    window.localStorage.dtimerDirection = timerDirection;
+                };
+
+                $answerForm.submit(function () {
+                    var timePrediction = $timePrediction.val();
+                    _compareResults(timePrediction);
+                    return false;
+                });
+
+                $settingsForm.delegate('input[type=checkbox]', 'click', function () {
+                    var data = $(this.form).serializeArray();
+                    window.localStorage.dtimerSettings = JSON.stringify(data);
+                    if (data.length == 0) {
+                        this.checked = true;
+                        return false;
+                    };
+                });
+
+                if (window.localStorage.dtimerSettings) {
+                    $settingsForm.deserialize(JSON.parse(window.localStorage.dtimerSettings));
+                };
+
+                _generatePickup();
+            });
+
+            $(document).bind('keydown', function (event) {
+                if (event.keyCode == 27) {
+                    $timePrediction.val('').focus();
+                    return false;
+                };
+            });
+
+        })();
+    </script>
+</body>
+</html>

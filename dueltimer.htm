@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <title>DUEL TIMER</title>
+    <title>TIMING HERO</title>
 
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
@@ -68,9 +68,9 @@
                     items</h3>
                 <form id="settingsForm">
                 <label>
-                    <input type="checkbox" name="Mega" value="35" checked="checked"><span>Mega health</span></label>
+                    <input type="checkbox" name="Mega health / Health bubbles" value="30" checked="checked"><span>Mega health</span></label>
                 <label>
-                    <input type="checkbox" name="Armor" value="25" checked="checked"><span>Armor</span></label>
+                    <input type="checkbox" name="Armor / Armor shards" value="25" checked="checked"><span>Armor</span></label>
                 </form>
             </div>
 
@@ -107,7 +107,7 @@
 
             var timerDirection = 1;
 
-            var _items = [{ name: 'Mega', value: 35 }, { name: 'Armor', value: 25}];
+            var _items = [{ name: 'Mega', value: 30 }, { name: 'Armor', value: 25}];
             var _elapsedTime;
             var _pauseTime = 0;
 
